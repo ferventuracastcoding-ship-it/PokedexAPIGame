@@ -11,6 +11,7 @@ const entity = {
 };
 
 console.log(this);
+console.log(this);
 
 entity.status();
 const entity = {
