@@ -1,32 +1,1593 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Full Pokédex</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Pokémon Flood-Fill Explorer</title>
+
+<style>
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:
+        radial-gradient(circle at 20% 10%,#263a72 0%,transparent 30%),
+        radial-gradient(circle at 80% 90%,#51245f 0%,transparent 30%),
+        #080b14;
+    color:#fff;
+    min-height:100vh;
+}
+
+header{
+    padding:24px 15px;
+    text-align:center;
+    border-bottom:1px solid #27304a;
+    background:rgba(5,8,18,.85);
+    position:sticky;
+    top:0;
+    z-index:10;
+    backdrop-filter:blur(10px);
+}
+
+header h1{
+    font-size:clamp(25px,6vw,45px);
+    letter-spacing:2px;
+    text-shadow:0 0 20px #5ee7ff;
+}
+
+header p{
+    color:#9aa8c7;
+    margin-top:8px;
+}
+
+.container{
+    width:min(1250px,94%);
+    margin:20px auto;
+}
+
+.dashboard{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:10px;
+    margin-bottom:18px;
+}
+
+.stat{
+    background:#101727;
+    border:1px solid #293651;
+    border-radius:14px;
+    padding:14px;
+    text-align:center;
+    box-shadow:0 8px 30px rgba(0,0,0,.2);
+}
+
+.stat span{
+    display:block;
+    color:#8190ad;
+    font-size:12px;
+    margin-bottom:5px;
+}
+
+.stat strong{
+    font-size:22px;
+}
+
+.controls{
+    background:#0e1422;
+    border:1px solid #293651;
+    border-radius:16px;
+    padding:15px;
+    margin-bottom:18px;
+}
+
+.controls h2{
+    font-size:16px;
+    margin-bottom:12px;
+    color:#70e7ff;
+}
+
+.type-buttons{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+button{
+    border:1px solid #33415f;
+    background:#151e31;
+    color:#fff;
+    padding:10px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:.2s;
+}
+
+button:hover{
+    transform:translateY(-2px);
+    background:#22304b;
+    border-color:#70e7ff;
+    box-shadow:0 0 15px rgba(112,231,255,.2);
+}
+
+button:active{
+    transform:scale(.96);
+}
+
+.primary{
+    background:#075b72;
+    border-color:#35d9ff;
+}
+
+.danger{
+    background:#602535;
+    border-color:#ff5577;
+}
+
+.algorithm-buttons{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:12px;
+}
+
+.layout{
+    display:grid;
+    grid-template-columns:minmax(300px,1.2fr) minmax(280px,.8fr);
+    gap:18px;
+}
+
+.panel{
+    background:#0d1320;
+    border:1px solid #293651;
+    border-radius:18px;
+    padding:16px;
+    min-width:0;
+}
+
+.panel-title{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.panel-title h2{
+    font-size:18px;
+}
+
+.badge{
+    background:#17233a;
+    border:1px solid #385174;
+    color:#6fe9ff;
+    border-radius:20px;
+    padding:5px 9px;
+    font-size:11px;
+}
+
+#board{
+    width:min(620px,100%);
+    aspect-ratio:1;
+    margin:auto;
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    gap:5px;
+}
+
+.cell{
+    position:relative;
+    min-width:0;
+    border:1px solid #354563;
+    background:
+        linear-gradient(145deg,#18253b,#0d1729);
+    border-radius:8px;
+    cursor:pointer;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:.2s;
+    box-shadow:inset 0 0 15px rgba(0,0,0,.25);
+}
+
+.cell:hover{
+    transform:scale(1.04);
+    border-color:#71e9ff;
+}
+
+.cell::before{
+    content:"";
+    position:absolute;
+    width:30%;
+    height:30%;
+    border-radius:50%;
+    background:#243552;
+    opacity:.6;
+}
+
+.cell .coord{
+    position:absolute;
+    top:3px;
+    left:4px;
+    font-size:8px;
+    color:#62738f;
+    z-index:2;
+}
+
+.cell .cover{
+    position:absolute;
+    inset:0;
+    background:
+        repeating-linear-gradient(
+            45deg,
+            rgba(255,255,255,.025) 0px,
+            rgba(255,255,255,.025) 2px,
+            transparent 2px,
+            transparent 6px
+        ),
+        #17243a;
+    z-index:4;
+}
+
+.cell .pokemon{
+    width:75%;
+    height:75%;
+    object-fit:contain;
+    opacity:0;
+    transform:scale(.2) rotate(-15deg);
+    transition:.45s;
+    z-index:3;
+}
+
+.cell.revealed{
+    background:#111b2d;
+    border-color:#4b7395;
+}
+
+.cell.revealed .cover{
+    opacity:0;
+    pointer-events:none;
+}
+
+.cell.revealed .pokemon{
+    opacity:1;
+    transform:scale(1) rotate(0);
+}
+
+.cell.safe{
+    animation:safePulse .6s ease;
+}
+
+.cell.scanning{
+    animation:scan .55s ease;
+    border-color:#66e9ff;
+}
+
+.cell.queue{
+    box-shadow:0 0 18px #a06cff,inset 0 0 20px rgba(160,108,255,.2);
+}
+
+.cell.flood{
+    animation:flood .6s ease;
+}
+
+.cell.mine{
+    background:#4d1524;
+    border-color:#ff476d;
+    animation:mine .7s ease;
+}
+
+.cell.mine::after{
+    content:"💥";
+    position:absolute;
+    font-size:30px;
+    animation:explode .7s ease;
+    z-index:6;
+}
+
+@keyframes safePulse{
+    0%{transform:scale(.8);box-shadow:0 0 0 transparent}
+    50%{transform:scale(1.12);box-shadow:0 0 30px #45eaff}
+    100%{transform:scale(1)}
+}
+
+@keyframes scan{
+    0%{transform:scale(.85);box-shadow:0 0 0 transparent}
+    50%{transform:scale(1.08);box-shadow:0 0 25px #42eaff}
+    100%{transform:scale(1)}
+}
+
+@keyframes flood{
+    0%{transform:scale(.5);opacity:.2}
+    70%{transform:scale(1.12);opacity:1}
+    100%{transform:scale(1)}
+}
+
+@keyframes mine{
+    0%{transform:scale(1)}
+    30%{transform:scale(1.2) rotate(-3deg)}
+    60%{transform:scale(.9) rotate(3deg)}
+    100%{transform:scale(1)}
+}
+
+@keyframes explode{
+    0%{transform:scale(.1)}
+    60%{transform:scale(1.5)}
+    100%{transform:scale(1)}
+}
+
+.algorithm{
+    margin-top:16px;
+}
+
+.algorithm-box{
+    background:#080d17;
+    border:1px solid #27344c;
+    border-radius:12px;
+    padding:12px;
+}
+
+.algorithm-title{
+    color:#b18cff;
+    font-weight:bold;
+    margin-bottom:8px;
+}
+
+.steps{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:210px;
+    overflow:auto;
+    font-family:"Courier New",monospace;
+    font-size:12px;
+}
+
+.step{
+    padding:7px 8px;
+    border-left:3px solid #35506e;
+    background:#0d1523;
+    color:#aab8d0;
+}
+
+.step.active{
+    border-left-color:#63eaff;
+    color:#fff;
+    box-shadow:0 0 12px rgba(99,234,255,.1);
+}
+
+.explorer{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+}
+
+.card{
+    background:#121c2e;
+    border:1px solid #2d3d5b;
+    border-radius:14px;
+    padding:10px;
+    text-align:center;
+    animation:cardIn .5s ease;
+}
+
+.card img{
+    width:100%;
+    height:100px;
+    object-fit:contain;
+}
+
+.card h3{
+    font-size:13px;
+    text-transform:capitalize;
+}
+
+.card small{
+    display:block;
+    color:#7586a4;
+    margin-top:4px;
+}
+
+@keyframes cardIn{
+    from{
+        opacity:0;
+        transform:translateY(20px) scale(.8);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0) scale(1);
+    }
+}
+
+.info{
+    margin-top:16px;
+    background:#0a101c;
+    border:1px solid #26344d;
+    border-radius:12px;
+    padding:12px;
+    color:#9eabc1;
+    font-size:13px;
+    line-height:1.6;
+}
+
+.progress-wrap{
+    margin-top:12px;
+}
+
+.progress-label{
+    display:flex;
+    justify-content:space-between;
+    color:#8392ad;
+    font-size:12px;
+    margin-bottom:5px;
+}
+
+.progress{
+    height:8px;
+    background:#172135;
+    border-radius:20px;
+    overflow:hidden;
+}
+
+.progress-bar{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,#44dfff,#9e6cff);
+    transition:.3s;
+}
+
+.modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.78);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:50;
+    backdrop-filter:blur(8px);
+}
+
+.modal.show{
+    display:flex;
+}
+
+.modal-card{
+    width:min(430px,100%);
+    background:#101827;
+    border:1px solid #416080;
+    border-radius:20px;
+    padding:22px;
+    text-align:center;
+    box-shadow:0 20px 80px rgba(0,0,0,.7);
+    animation:modalIn .35s ease;
+}
+
+.modal-card img{
+    width:200px;
+    max-width:70%;
+}
+
+.modal-card h2{
+    text-transform:capitalize;
+    margin:8px 0;
+}
+
+.modal-card p{
+    color:#9ba9c0;
+    margin:8px;
+}
+
+@keyframes modalIn{
+    from{
+        opacity:0;
+        transform:scale(.7) translateY(30px);
+    }
+    to{
+        opacity:1;
+        transform:scale(1) translateY(0);
+    }
+}
+
+footer{
+    text-align:center;
+    color:#61708c;
+    padding:25px;
+    font-size:12px;
+}
+
+@media(max-width:850px){
+    .dashboard{
+        grid-template-columns:repeat(3,1fr);
+    }
+
+    .layout{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:500px){
+    header{
+        padding:18px 10px;
+    }
+
+    .container{
+        width:96%;
+        margin:12px auto;
+    }
+
+    .dashboard{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .stat{
+        padding:10px;
+    }
+
+    .stat strong{
+        font-size:18px;
+    }
+
+    button{
+        padding:9px 10px;
+        font-size:12px;
+    }
+
+    #board{
+        gap:3px;
+    }
+
+    .cell{
+        border-radius:5px;
+    }
+
+    .cell .coord{
+        font-size:6px;
+    }
+
+    .explorer{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .card img{
+        height:80px;
+    }
+}
+</style>
 </head>
+
 <body>
 
-  <div class="pokedex">
-    <h1>Pokédex</h1>
+<header>
+    <h1>⚡ Pokémon Flood-Fill Explorer</h1>
+    <p>Explore the grid • Discover Pokémon • Visualize Flood Fill</p>
+</header>
 
-    <input type="text" id="search" placeholder="Enter Pokémon name or ID">
-    <button id="btn">Search</button>
+<div class="container">
 
-    <div id="card" class="card hidden">
-      <img id="sprite">
-      <h2 id="name"></h2>
-      <p id="type"></p>
-      <p id="stats"></p>
+    <div class="dashboard">
+        <div class="stat">
+            <span>DISCOVERED</span>
+            <strong id="discovered">0</strong>
+        </div>
+
+        <div class="stat">
+            <span>MINES</span>
+            <strong id="mineCount">12</strong>
+        </div>
+
+        <div class="stat">
+            <span>FLOOD CELLS</span>
+            <strong id="floodCount">0</strong>
+        </div>
+
+        <div class="stat">
+            <span>OPERATIONS</span>
+            <strong id="operations">0</strong>
+        </div>
+
+        <div class="stat">
+            <span>TIME</span>
+            <strong id="timer">0</strong>
+        </div>
     </div>
-  </div>
 
-  <section></section>
-  <section></section>
-  <section></section>
-  <section></section>
-  <section></section>
+    <div class="controls">
 
-  <script src="script.js"></script>
+        <h2>🌎 Pokémon Type Explorer</h2>
+
+        <div class="type-buttons">
+            <button onclick="selectType('rock')">🪨 Rock</button>
+            <button onclick="selectType('electric')">⚡ Electric</button>
+            <button onclick="selectType('fire')">🔥 Fire</button>
+            <button onclick="selectType('water')">💧 Water</button>
+            <button onclick="selectType('grass')">🌿 Grass</button>
+            <button onclick="selectType('psychic')">🔮 Psychic</button>
+            <button onclick="selectType('normal')">⚪ Normal</button>
+            <button onclick="selectType('flying')">🪽 Flying</button>
+        </div>
+
+        <div class="algorithm-buttons">
+            <button class="primary" onclick="newGame()">🎮 New Explorer</button>
+            <button onclick="runFloodFill()">🌊 Run Flood Fill</button>
+            <button onclick="runMatrixScan()">🔢 Matrix Scan</button>
+            <button onclick="runNeighborSearch()">🔎 Neighbor Search</button>
+            <button onclick="hint()">💡 Hint</button>
+        </div>
+
+        <div class="progress-wrap">
+            <div class="progress-label">
+                <span>Exploration Progress</span>
+                <span id="progressText">0%</span>
+            </div>
+
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="layout">
+
+        <section class="panel">
+
+            <div class="panel-title">
+                <h2>🧩 Flood-Fill Matrix</h2>
+                <span class="badge" id="status">READY</span>
+            </div>
+
+            <div id="board"></div>
+
+            <div class="algorithm">
+                <div class="algorithm-box">
+
+                    <div class="algorithm-title">
+                        🧠 Algorithm Console
+                    </div>
+
+                    <div class="steps" id="console">
+                        <div class="step active">
+                            Waiting for exploration...
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+
+        <section class="panel">
+
+            <div class="panel-title">
+                <h2>📖 Pokédex Discoveries</h2>
+                <span class="badge" id="typeBadge">ROCK</span>
+            </div>
+
+            <div class="explorer" id="pokedex"></div>
+
+            <div class="info">
+
+                <strong>How Flood Fill Works</strong>
+
+                <br><br>
+
+                Flood Fill starts from a selected cell and explores
+                connected neighboring cells.
+
+                <br><br>
+
+                This project visualizes the process using a
+                <strong>BFS-style queue</strong>.
+
+                <br><br>
+
+                Each cell is represented as a matrix coordinate:
+
+                <br>
+
+                <code>[row, column]</code>
+
+                <br><br>
+
+                The algorithm checks the eight surrounding positions,
+                avoids already visited cells, and expands through
+                safe regions.
+
+            </div>
+
+        </section>
+
+    </div>
+</div>
+
+<footer>
+    Pokémon data provided by PokéAPI • Educational algorithm visualization
+</footer>
+
+<div class="modal" id="modal" onclick="closeModal(event)">
+    <div class="modal-card" id="modalCard"></div>
+</div>
+
+<script>
+
+const SIZE = 8;
+const TOTAL = SIZE * SIZE;
+const MINES = 12;
+
+let board = [];
+let pokemonPool = [];
+let discovered = new Set();
+
+let currentType = "rock";
+let operations = 0;
+let floodCells = 0;
+let seconds = 0;
+let gameStarted = false;
+let timerInterval = null;
+let busy = false;
+
+
+/* ============================
+   API
+============================ */
+
+async function loadPokemon(type){
+
+    setStatus("LOADING API...");
+
+    try{
+
+        const response = await fetch(
+            `https://pokeapi.co/api/v2/type/${type}`
+        );
+
+        const data = await response.json();
+
+        pokemonPool = data.pokemon
+            .slice(0,50)
+            .map(x => x.pokemon);
+
+        addConsole(
+            `PokéAPI loaded ${pokemonPool.length} ${type} Pokémon.`
+        );
+
+        await createBoard();
+
+    }catch(error){
+
+        addConsole("PokéAPI request failed.");
+
+        pokemonPool = [
+            {
+                name:"pikachu",
+                url:"https://pokeapi.co/api/v2/pokemon/25/"
+            }
+        ];
+
+        await createBoard();
+    }
+}
+
+
+/* ============================
+   BOARD CREATION
+============================ */
+
+async function createBoard(){
+
+    board = [];
+
+    const shuffled = [...pokemonPool]
+        .sort(() => Math.random() - .5);
+
+    for(let i=0;i<TOTAL;i++){
+
+        board.push({
+            row:Math.floor(i/SIZE),
+            col:i%SIZE,
+            mine:false,
+            revealed:false,
+            visited:false,
+            pokemon:shuffled[i % shuffled.length],
+            element:null
+        });
+    }
+
+    let minesPlaced = 0;
+
+    while(minesPlaced < MINES){
+
+        const index =
+            Math.floor(Math.random()*TOTAL);
+
+        if(!board[index].mine){
+
+            board[index].mine = true;
+            minesPlaced++;
+        }
+    }
+
+    renderBoard();
+}
+
+
+/* ============================
+   RENDER
+============================ */
+
+function renderBoard(){
+
+    const boardElement =
+        document.getElementById("board");
+
+    boardElement.innerHTML = "";
+
+    board.forEach((cell,index)=>{
+
+        const div = document.createElement("div");
+
+        div.className = "cell";
+
+        div.innerHTML = `
+            <span class="coord">
+                [${cell.row},${cell.col}]
+            </span>
+
+            <div class="cover"></div>
+
+            <img
+                class="pokemon"
+                alt="${cell.pokemon.name}"
+            >
+        `;
+
+        div.onclick = () => explore(index);
+
+        cell.element = div;
+
+        boardElement.appendChild(div);
+    });
+}
+
+
+/* ============================
+   POKEMON IMAGE
+============================ */
+
+async function revealPokemonImage(cell){
+
+    try{
+
+        const response =
+            await fetch(cell.pokemon.url);
+
+        const data =
+            await response.json();
+
+        const img =
+            cell.element.querySelector(".pokemon");
+
+        img.src =
+            data.sprites.other["official-artwork"].front_default
+            || data.sprites.front_default;
+
+        img.dataset.id = data.id;
+
+    }catch(error){
+
+        console.log(error);
+    }
+}
+
+
+/* ============================
+   EXPLORE CELL
+============================ */
+
+async function explore(index){
+
+    if(busy) return;
+
+    const cell = board[index];
+
+    if(cell.revealed) return;
+
+    startTimer();
+
+    operations++;
+
+    updateStats();
+
+    if(cell.mine){
+
+        cell.element.classList.add("mine");
+
+        setStatus("MINE!");
+
+        addConsole(
+            `💥 Mine detected at [${cell.row},${cell.col}]`
+        );
+
+        await revealPokemonImage(cell);
+
+        cell.revealed = true;
+
+        setTimeout(()=>{
+            showPokemon(cell);
+        },400);
+
+        return;
+    }
+
+    await revealCell(cell);
+
+    /*
+       Automatically demonstrate
+       flood-fill when a safe cell
+       has been selected.
+    */
+
+    setTimeout(()=>{
+        runFloodFillFrom(index);
+    },350);
+}
+
+
+/* ============================
+   REVEAL
+============================ */
+
+async function revealCell(cell){
+
+    if(cell.revealed) return;
+
+    cell.revealed = true;
+
+    cell.element.classList.add("revealed","safe");
+
+    await revealPokemonImage(cell);
+
+    if(!discovered.has(cell.pokemon.name)){
+
+        discovered.add(cell.pokemon.name);
+
+        addPokedexCard(cell);
+
+        document.getElementById("discovered")
+            .textContent = discovered.size;
+    }
+
+    updateStats();
+}
+
+
+/* ============================
+   BFS FLOOD FILL
+============================ */
+
+async function runFloodFill(){
+
+    if(busy) return;
+
+    const start =
+        board.findIndex(cell =>
+            !cell.mine && !cell.revealed
+        );
+
+    if(start === -1){
+
+        addConsole("No unexplored safe cells remain.");
+
+        return;
+    }
+
+    await runFloodFillFrom(start);
+}
+
+
+async function runFloodFillFrom(startIndex){
+
+    if(busy) return;
+
+    busy = true;
+
+    setStatus("FLOOD FILL");
+
+    const queue = [startIndex];
+
+    const visited = new Set();
+
+    addConsole(
+        `🌊 FLOOD FILL START → [${board[startIndex].row},${board[startIndex].col}]`
+    );
+
+    while(queue.length){
+
+        const index = queue.shift();
+
+        if(visited.has(index)) continue;
+
+        visited.add(index);
+
+        const cell = board[index];
+
+        operations++;
+
+        updateStats();
+
+        cell.element.classList.add("queue");
+
+        addConsole(
+            `QUEUE POP → [${cell.row},${cell.col}]`
+        );
+
+        await sleep(180);
+
+        if(cell.mine){
+
+            addConsole(
+                `⛔ Mine boundary detected → [${cell.row},${cell.col}]`
+            );
+
+            cell.element.classList.remove("queue");
+
+            continue;
+        }
+
+        await revealCell(cell);
+
+        cell.element.classList.remove("queue");
+
+        cell.element.classList.add("flood");
+
+        floodCells++;
+
+        document.getElementById("floodCount")
+            .textContent = floodCells;
+
+        const neighbors =
+            getNeighbors(cell.row,cell.col);
+
+        addConsole(
+            `CHECK ${neighbors.length} NEIGHBORS`
+        );
+
+        for(const neighbor of neighbors){
+
+            const nIndex =
+                neighbor.row * SIZE + neighbor.col;
+
+            operations++;
+
+            if(
+                !visited.has(nIndex) &&
+                !board[nIndex].revealed
+            ){
+
+                if(!board[nIndex].mine){
+
+                    queue.push(nIndex);
+
+                    board[nIndex].element
+                        .classList.add("scanning");
+
+                    addConsole(
+                        `QUEUE PUSH → [${neighbor.row},${neighbor.col}]`
+                    );
+                }
+            }
+        }
+
+        await sleep(120);
+    }
+
+    setStatus("FLOOD COMPLETE");
+
+    addConsole(
+        `✅ FLOOD FILL COMPLETE — ${visited.size} cells visited.`
+    );
+
+    busy = false;
+
+    updateStats();
+}
+
+
+/* ============================
+   NEIGHBORS
+============================ */
+
+function getNeighbors(row,col){
+
+    const neighbors = [];
+
+    for(let dr=-1;dr<=1;dr++){
+
+        for(let dc=-1;dc<=1;dc++){
+
+            if(dr===0 && dc===0)
+                continue;
+
+            const nr = row + dr;
+            const nc = col + dc;
+
+            if(
+                nr>=0 &&
+                nr<SIZE &&
+                nc>=0 &&
+                nc<SIZE
+            ){
+
+                neighbors.push({
+                    row:nr,
+                    col:nc
+                });
+            }
+        }
+    }
+
+    return neighbors;
+}
+
+
+/* ============================
+   MATRIX SCAN
+============================ */
+
+async function runMatrixScan(){
+
+    if(busy) return;
+
+    busy = true;
+
+    setStatus("MATRIX SCAN");
+
+    addConsole(
+        "🔢 Starting row-major matrix traversal..."
+    );
+
+    for(let row=0;row<SIZE;row++){
+
+        for(let col=0;col<SIZE;col++){
+
+            const index =
+                row * SIZE + col;
+
+            const cell = board[index];
+
+            cell.element.classList.add("scanning");
+
+            operations++;
+
+            addConsole(
+                `SCAN → matrix[${row}][${col}]`
+            );
+
+            await sleep(55);
+
+            cell.element.classList.remove("scanning");
+        }
+    }
+
+    addConsole(
+        "✅ Matrix scan complete."
+    );
+
+    setStatus("READY");
+
+    busy = false;
+
+    updateStats();
+}
+
+
+/* ============================
+   NEIGHBOR SEARCH
+============================ */
+
+async function runNeighborSearch(){
+
+    if(busy) return;
+
+    const center =
+        board[Math.floor(TOTAL/2)];
+
+    busy = true;
+
+    setStatus("NEIGHBOR SEARCH");
+
+    addConsole(
+        `🔎 Center → [${center.row},${center.col}]`
+    );
+
+    const neighbors =
+        getNeighbors(center.row,center.col);
+
+    for(const n of neighbors){
+
+        const index =
+            n.row * SIZE + n.col;
+
+        board[index]
+            .element
+            .classList.add("scanning");
+
+        operations++;
+
+        addConsole(
+            `NEIGHBOR → [${n.row},${n.col}]`
+        );
+
+        await sleep(180);
+
+        board[index]
+            .element
+            .classList.remove("scanning");
+    }
+
+    addConsole(
+        "✅ Neighbor search complete."
+    );
+
+    setStatus("READY");
+
+    busy = false;
+
+    updateStats();
+}
+
+
+/* ============================
+   HINT
+============================ */
+
+function hint(){
+
+    const safe =
+        board.find(cell =>
+            !cell.mine && !cell.revealed
+        );
+
+    if(!safe){
+
+        addConsole("No safe hint available.");
+
+        return;
+    }
+
+    safe.element.animate(
+        [
+            {
+                transform:"scale(1)",
+                boxShadow:"0 0 0 transparent"
+            },
+            {
+                transform:"scale(1.2)",
+                boxShadow:"0 0 35px #62eaff"
+            },
+            {
+                transform:"scale(1)",
+                boxShadow:"0 0 0 transparent"
+            }
+        ],
+        {
+            duration:1000,
+            iterations:3
+        }
+    );
+
+    addConsole(
+        `💡 Hint → safe cell [${safe.row},${safe.col}]`
+    );
+}
+
+
+/* ============================
+   POKEDEX
+============================ */
+
+async function addPokedexCard(cell){
+
+    const container =
+        document.getElementById("pokedex");
+
+    const card =
+        document.createElement("div");
+
+    card.className = "card";
+
+    card.innerHTML = `
+        <img src="" alt="">
+        <h3>${cell.pokemon.name}</h3>
+        <small>
+            Matrix [${cell.row},${cell.col}]
+        </small>
+    `;
+
+    card.onclick = () => showPokemon(cell);
+
+    container.prepend(card);
+
+    try{
+
+        const response =
+            await fetch(cell.pokemon.url);
+
+        const data =
+            await response.json();
+
+        card.querySelector("img").src =
+            data.sprites.other["official-artwork"].front_default
+            || data.sprites.front_default;
+
+    }catch(error){}
+}
+
+
+async function showPokemon(cell){
+
+    const modal =
+        document.getElementById("modal");
+
+    const card =
+        document.getElementById("modalCard");
+
+    card.innerHTML = `
+        <h2>Loading Pokémon...</h2>
+    `;
+
+    modal.classList.add("show");
+
+    try{
+
+        const response =
+            await fetch(cell.pokemon.url);
+
+        const data =
+            await response.json();
+
+        const image =
+            data.sprites.other["official-artwork"].front_default
+            || data.sprites.front_default;
+
+        const types =
+            data.types
+            .map(t=>t.type.name)
+            .join(" • ");
+
+        card.innerHTML = `
+            <img src="${image}" alt="${data.name}">
+
+            <h2>${data.name}</h2>
+
+            <p>
+                Pokémon #${String(data.id).padStart(3,"0")}
+            </p>
+
+            <p>
+                Type: ${types}
+            </p>
+
+            <p>
+                Matrix Position:
+                [${cell.row}, ${cell.col}]
+            </p>
+
+            <p>
+                Height: ${data.height}
+                • Weight: ${data.weight}
+            </p>
+
+            <button onclick="closeModal()">
+                Close Explorer
+            </button>
+        `;
+
+    }catch(error){
+
+        card.innerHTML = `
+            <h2>Pokémon unavailable</h2>
+            <button onclick="closeModal()">Close</button>
+        `;
+    }
+}
+
+
+function closeModal(event){
+
+    if(
+        !event ||
+        event.target.id === "modal"
+    ){
+
+        document
+            .getElementById("modal")
+            .classList.remove("show");
+    }
+}
+
+
+/* ============================
+   NEW GAME
+============================ */
+
+function newGame(){
+
+    if(timerInterval){
+
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+
+    seconds = 0;
+    operations = 0;
+    floodCells = 0;
+
+    discovered.clear();
+
+    document.getElementById("pokedex").innerHTML = "";
+
+    document.getElementById("timer")
+        .textContent = "0";
+
+    document.getElementById("discovered")
+        .textContent = "0";
+
+    document.getElementById("floodCount")
+        .textContent = "0";
+
+    document.getElementById("operations")
+        .textContent = "0";
+
+    document.getElementById("console").innerHTML = "";
+
+    addConsole("🎮 New Pokémon exploration created.");
+
+    loadPokemon(currentType);
+}
+
+
+/* ============================
+   TYPE SELECTOR
+============================ */
+
+function selectType(type){
+
+    currentType = type;
+
+    document.getElementById("typeBadge")
+        .textContent = type.toUpperCase();
+
+    addConsole(
+        `🌈 Switching explorer to ${type} Pokémon...`
+    );
+
+    newGame();
+}
+
+
+/* ============================
+   TIMER
+============================ */
+
+function startTimer(){
+
+    if(gameStarted) return;
+
+    gameStarted = true;
+
+    timerInterval =
+        setInterval(()=>{
+
+            seconds++;
+
+            document.getElementById("timer")
+                .textContent = seconds;
+
+        },1000);
+}
+
+
+/* ============================
+   STATUS
+============================ */
+
+function setStatus(status){
+
+    document.getElementById("status")
+        .textContent = status;
+}
+
+
+/* ============================
+   CONSOLE
+============================ */
+
+function addConsole(message){
+
+    const consoleElement =
+        document.getElementById("console");
+
+    const step =
+        document.createElement("div");
+
+    step.className = "step";
+
+    step.textContent =
+        `[${new Date().toLocaleTimeString()}] ${message}`;
+
+    consoleElement.prepend(step);
+
+    const first =
+        consoleElement.querySelector(".step");
+
+    if(first)
+        first.classList.add("active");
+
+    while(consoleElement.children.length > 35){
+
+        consoleElement.removeChild(
+            consoleElement.lastChild
+        );
+    }
+}
+
+
+/* ============================
+   STATS
+============================ */
+
+function updateStats(){
+
+    document.getElementById("operations")
+        .textContent = operations;
+
+    const revealed =
+        board.filter(c=>c.revealed).length;
+
+    const percentage =
+        Math.round(
+            (revealed / TOTAL) * 100
+        );
+
+    document.getElementById("progressBar")
+        .style.width = percentage + "%";
+
+    document.getElementById("progressText")
+        .textContent = percentage + "%";
+}
+
+
+/* ============================
+   UTILITY
+============================ */
+
+function sleep(ms){
+
+    return new Promise(
+        resolve => setTimeout(resolve,ms)
+    );
+}
+
+
+/* ============================
+   INITIALIZE
+============================ */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    ()=>{
+        loadPokemon("rock");
+    }
+);
+
+</script>
+
 </body>
 </html>
